@@ -4,7 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>智能抽取系统 - 苹果矩阵</title>
-    <!-- 预留位置：GA4 统计代码将在下一步填入此处 -->
+    <!-- GA4 统计代码（仅统计基础访问数据，不收集任何个人信息） -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z7MM7NHBTX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){
+        // 过滤掉包含敏感信息的事件参数
+        if(arguments.length > 1 && typeof arguments[1] === 'string' && arguments[1] === 'event'){
+          // 仅保留基础事件，移除任何可能包含数据的参数
+          dataLayer.push([arguments[0], arguments[1]]);
+        } else {
+          // 仅初始化基础配置，不传递任何自定义数据
+          dataLayer.push(arguments);
+        }
+      }
+      gtag('js', new Date());
+      // 禁用GA4的增强型测量，防止自动收集表单数据
+      gtag('config', 'G-Z7MM7NHBTX', {
+        'enhanced_measurement': false,
+        'send_page_view': true, // 仅发送基础页面访问
+        'custom_map': {} // 清空自定义映射
+      });
+    </script>
+    
+    <!-- 百度统计代码 -->
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?e27d5ef2874a900a73ea28ba11a1f92a";
+      var s = document.getElementsByTagName("script")[0]; 
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -43,6 +75,7 @@
             overflow-x: hidden;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            padding-bottom: 60px; /* 为页脚声明预留空间 */
         }
 
         .ios-card {
@@ -134,6 +167,24 @@
 
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+
+        /* 隐私免责声明样式 */
+        .privacy-disclaimer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 8px 16px;
+            font-size: 9px;
+            color: rgba(142, 142, 147, 0.4); /* 极淡的灰色 */
+            background-color: inherit;
+            text-align: center;
+            z-index: 99;
+            line-height: 1.4;
+        }
+        body.dark-mode .privacy-disclaimer {
+            color: rgba(174, 174, 178, 0.3); /* 深色模式下更淡的灰色 */
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -272,14 +323,27 @@
         </div>
     </div>
 
+    <!-- 隐私免责声明 -->
+    <div class="privacy-disclaimer">
+        1. 本工具仅在浏览器本地运行，所有姓名、学号仅存在用户设备中。<br>
+        2. 本网站使用 Google Analytics 仅统计访问量与使用次数，不收集、不上传、不发送任何个人信息。
+    </div>
+
     <script type="module">
-        // --- GA4 埋点安全封装 ---
-        // 作用：即使 GA4 脚本还没加载，调用这个函数也不会报错
+        // --- GA4 埋点安全封装（仅记录基础事件，不包含任何敏感数据） ---
         const trackSuccess = () => {
             if (typeof gtag === 'function') {
-                gtag('event', 'draw_success'); // 记录抽取成功事件
+                // 仅发送基础事件名称，不传递任何参数
+                gtag('event', 'draw_success'); 
             } else {
                 console.log('Event tracked (GA not ready): draw_success');
+            }
+            
+            // 百度统计仅记录基础事件，不包含敏感信息
+            if (typeof _hmt !== 'undefined') {
+                _hmt.push(['_trackEvent', '抽取操作', '抽取成功', 'draw_success']);
+            } else {
+                console.log('Baidu Analytics not ready: draw_success event');
             }
         };
 
@@ -622,7 +686,7 @@
             }
 
             document.getElementById('congrats').classList.add('show');
-            trackSuccess(); // --- 触发 GA4 事件：draw_success ---
+            trackSuccess(); // 仅触发基础事件，无敏感数据
             spawnConfettiFromElements(Array.from(slots).slice(0, winners.length));
             updateToggleBtnUI();
             
