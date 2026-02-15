@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>智能抽取系统 - 苹果矩阵</title>
+    <!-- 预留位置：GA4 统计代码将在下一步填入此处 -->
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
+
+        :root {
+            --ios-bg: #F2F2F7;
+            --ios-card: rgba(255, 255, 255, 0.85);
+            --ios-primary: #000000;
+            --ios-primary-hover: #333333;
+            --ios-primary-active: #1a1a1a;
+            --ios-accent: #007AFF;
+            --ios-text: #000000;
+            --ios-secondary: #8E8E93;
+            --ios-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+            --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        body.dark-mode {
+            --ios-bg: #000000;
+            --ios-card: rgba(28, 28, 30, 0.95);
+            --ios-text: #FFFFFF;
+            --ios-secondary: #AEAEB2;
+            --ios-primary: #FFFFFF;
+            --ios-primary-hover: #E5E5E7;
+            --ios-primary-active: #D1D1D6;
+            --ios-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", Roboto, sans-serif;
+            background-color: var(--ios-bg);
+            color: var(--ios-text);
+            transition: var(--transition);
+            overflow-x: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .ios-card {
+            background: var(--ios-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 24px;
+            box-shadow: var(--ios-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: var(--transition);
+        }
+
+        .glass-header {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            z-index: 100;
+        }
+        body.dark-mode .glass-header { background: rgba(0,0,0,0.7); border-bottom-color: rgba(255,255,255,0.1); }
+
+        .btn-primary {
+            background-color: var(--ios-primary);
+            color: white;
+            padding: 14px 28px; border-radius: 16px; font-weight: 600;
+            transition: var(--transition); display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+        body.dark-mode .btn-primary { color: black; }
+        
+        .btn-primary:hover { background-color: var(--ios-primary-hover); }
+        .btn-primary:active { transform: scale(0.94); background-color: var(--ios-primary-active); }
+
+        .btn-ghost {
+            background: rgba(142, 142, 147, 0.12);
+            padding: 10px 20px; border-radius: 14px; font-weight: 500;
+            transition: var(--transition);
+        }
+        .btn-ghost:active { transform: scale(0.96); }
+
+        .mode-card { cursor: pointer; border: 2px solid transparent; transform: translateY(0); }
+        .mode-card.active { border-color: var(--ios-accent); background: rgba(0, 122, 255, 0.08); }
+
+        .slot {
+            padding: 1rem;
+            min-width: 240px;
+            text-align: center;
+            background: rgba(142, 142, 147, 0.08);
+            border-radius: 24px;
+            font-weight: 900;
+            font-size: 8rem;
+            line-height: 1.1;
+            transition: var(--transition);
+            overflow-wrap: break-word;
+            max-width: 90vw;
+        }
+
+        @media (max-width: 768px) {
+            .slot { font-size: 4.5rem; min-width: 180px; padding: 1rem; }
+        }
+
+        .rolling { animation: bounce 0.15s infinite alternate; color: var(--ios-accent); }
+
+        @keyframes bounce { from { transform: translateY(-4px); } to { transform: translateY(4px); } }
+
+        #congrats {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            font-weight: 800;
+            background: #000;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            z-index: 10;
+        }
+        body.dark-mode #congrats { background: #fff; color: #000; }
+        #congrats.show { opacity: 1; transform: translateY(0); }
+
+        .watermark { cursor: pointer; font-size: 9px; transition: var(--transition); }
+        .watermark.active { text-decoration: underline; color: var(--ios-accent); }
+
+        #confettiCanvas {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 150;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <canvas id="confettiCanvas"></canvas>
+
+    <header class="glass-header sticky top-0 px-6 py-4 flex justify-between items-center">
+        <h1 class="text-xl font-bold tracking-tight">智能抽取系统</h1>
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col items-end">
+                <div id="hiddenTrigger" class="hidden-trigger cursor-pointer transition-transform hover:scale-110">
+                    <i data-lucide="apple" class="w-6 h-6 fill-current"></i>
+                </div>
+                <span id="watermarkBtn" class="watermark text-gray-400 font-bold uppercase tracking-tighter">苹果矩阵Creation</span>
+            </div>
+        </div>
+    </header>
+
+    <main id="mainContainer" class="max-w-[1440px] mx-auto p-4 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 transition-all">
+        <!-- Left Sidebar -->
+        <aside id="configSidebar" class="lg:col-span-3 space-y-6">
+            <div class="ios-card p-5 space-y-6">
+                <div>
+                    <h2 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <i data-lucide="hash" class="w-4 h-4"></i> 数字范围
+                    </h2>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="number" id="rangeStart" value="1" class="bg-gray-100 dark:bg-zinc-900 rounded-lg p-2 text-sm outline-none">
+                        <input type="number" id="rangeEnd" value="50" class="bg-gray-100 dark:bg-zinc-900 rounded-lg p-2 text-sm outline-none">
+                    </div>
+                    <div id="sourceStatus" class="text-[10px] mt-2 font-bold text-blue-500">检测中...</div>
+                </div>
+                <hr class="opacity-10">
+                <div>
+                    <h2 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <i data-lucide="list" class="w-4 h-4"></i> 智能名单
+                    </h2>
+                    <textarea id="rawInput" class="w-full h-40 bg-gray-50 dark:bg-zinc-900 border-none rounded-xl p-3 text-sm focus:ring-1 ring-blue-500/50 outline-none resize-none" placeholder="1 小明&#10;2 小红..."></textarea>
+                    <div id="parsedCount" class="text-[10px] mt-2 text-gray-400 font-medium">未载入</div>
+                </div>
+                <hr class="opacity-10">
+                <div>
+                    <h2 class="text-xs font-bold text-orange-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <i data-lucide="user-minus" class="w-4 h-4"></i> 轮空板
+                    </h2>
+                    <textarea id="excludeInput" class="w-full h-24 bg-gray-50 dark:bg-zinc-900 border-none rounded-xl p-3 text-sm outline-none resize-none" placeholder="不参与抽取的人..."></textarea>
+                </div>
+                <div class="flex gap-2">
+                    <button id="applyAllSettings" class="btn-primary text-xs flex-1 py-3">更新名单</button>
+                    <button id="resetListBtn" class="btn-ghost text-xs text-red-500" title="清空全部输入"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center Area -->
+        <div id="centerArea" class="lg:col-span-6 space-y-6">
+            <div id="modeSelector" class="grid grid-cols-3 gap-3">
+                <div class="mode-card ios-card p-4 text-center active" data-mode="repeat">
+                    <i data-lucide="repeat" class="w-5 h-5 mx-auto mb-2 text-blue-500"></i>
+                    <h3 class="text-[11px] font-bold">可重复</h3>
+                </div>
+                <div class="mode-card ios-card p-4 text-center" data-mode="unique">
+                    <i data-lucide="shield-check" class="w-5 h-5 mx-auto mb-2 text-green-500"></i>
+                    <h3 class="text-[11px] font-bold">不重复</h3>
+                </div>
+                <div class="mode-card ios-card p-4 text-center" data-mode="chosen">
+                    <i data-lucide="crown" class="w-5 h-5 mx-auto mb-2 text-amber-500"></i>
+                    <h3 class="text-[11px] font-bold">天选之子</h3>
+                </div>
+            </div>
+
+            <div id="drawWorkspace" class="ios-card p-6 md:p-10 min-h-[600px] flex flex-col items-center justify-center relative">
+                <div id="roundInfo" class="absolute top-4 text-[10px] font-bold text-blue-500 opacity-0"></div>
+                
+                <div id="slotMachine" class="flex flex-wrap justify-center gap-6 w-full cursor-pointer">
+                    <div class="slot">---</div>
+                </div>
+                
+                <div id="congrats" class="text-sm mt-10">恭喜中奖，收下好运！</div>
+
+                <div class="w-full max-w-sm mt-10 space-y-6">
+                    <div class="flex items-center justify-between bg-gray-100/50 dark:bg-zinc-900 p-4 rounded-2xl">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-gray-500">抽取人数</span>
+                            <input type="number" id="batchSize" value="1" min="1" max="10" class="w-10 bg-transparent font-bold text-center outline-none text-blue-500">
+                        </div>
+                        <div id="poolDisplay" class="text-[10px] font-bold text-gray-400">池: 0</div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <button id="startBtn" class="btn-primary flex-[4] text-xl py-5">开始</button>
+                        <button id="resetGameBtn" class="btn-ghost flex-[2] text-xs font-bold text-gray-400">重置刷新</button>
+                    </div>
+                </div>
+            </div>
+
+            <section id="weightManager" class="ios-card p-6 hidden">
+                <h3 class="font-bold text-sm mb-4">权重调节</h3>
+                <div id="weightList" class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-2"></div>
+            </section>
+        </div>
+
+        <!-- Right Sidebar -->
+        <aside id="historySidebar" class="lg:col-span-3">
+            <div class="ios-card p-5 h-full flex flex-col lg:h-[750px]">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2"><i data-lucide="clock" class="w-4 h-4"></i> 历史记录</h2>
+                    <button id="clearHistory" class="text-[10px] font-bold text-red-400">清空</button>
+                </div>
+                <div id="historyList" class="space-y-4 flex-1 overflow-y-auto custom-scrollbar"></div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Hidden Mode View -->
+    <div id="hiddenOverlayView" class="fixed inset-0 bg-black z-[200] hidden flex flex-col items-center justify-center p-6">
+        <div class="ios-card p-8 max-w-md w-full bg-zinc-900 border-zinc-800">
+            <div class="flex items-center gap-4 mb-8">
+                <i data-lucide="apple" class="w-10 h-10 text-white fill-current"></i>
+                <h2 class="text-2xl font-bold text-white">幸运管理</h2>
+            </div>
+            <div class="space-y-6">
+                <div>
+                    <label class="text-[10px] text-zinc-500 font-bold uppercase mb-2 block">幸运儿名单</label>
+                    <p class="text-[10px] text-zinc-600 mb-2">在此输入的名单将获得更高的中奖权重。</p>
+                    <textarea id="hiddenList" class="w-full h-40 bg-zinc-800 rounded-2xl p-4 text-white text-sm outline-none border border-zinc-700" placeholder="输入幸运儿姓名或学号..."></textarea>
+                </div>
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-[10px] text-zinc-500 font-bold uppercase">幸运权重偏移</label>
+                        <span id="hiddenWeightLabel" class="text-[10px] text-blue-500 font-bold">70%</span>
+                    </div>
+                    <input type="range" id="hiddenWeightRange" min="10" max="95" value="70" class="w-full accent-blue-500">
+                </div>
+                <button id="exitHidden" class="w-full btn-primary bg-white text-black mt-4">保存并退出</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- GA4 埋点安全封装 ---
+        // 作用：即使 GA4 脚本还没加载，调用这个函数也不会报错
+        const trackSuccess = () => {
+            if (typeof gtag === 'function') {
+                gtag('event', 'draw_success'); // 记录抽取成功事件
+            } else {
+                console.log('Event tracked (GA not ready): draw_success');
+            }
+        };
+
+        const state = {
+            members: [], history: [], mode: 'repeat', status: 'idle', 
+            batchSize: 1, weights: {}, hiddenActive: false, hiddenListRaw: '', 
+            hiddenWeight: 0.7, remainingPool: [], fullPool: [], timer: null, 
+            source: 'range',
+            consecutiveLog: new Map()
+        };
+
+        const STORAGE_KEY = 'IOS_PICKER_V7_REFINED';
+
+        // --- Optimized Confetti Effect ---
+        const canvas = document.getElementById('confettiCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        const colors = ['#FF3B30', '#007AFF', '#34C759', '#FF9500', '#AF52DE', '#5856D6'];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor(originX, originY) {
+                this.x = originX;
+                this.y = originY;
+                this.width = Math.random() * 8 + 8; // 10-16
+                this.height = Math.random() * 4 + 4; // 4-8
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                
+                const angle = Math.random() * Math.PI * 2;
+                const force = Math.random() * 15 + 10;
+                this.vx = Math.cos(angle) * force;
+                this.vy = Math.sin(angle) * force - 5; // Upward bias
+                
+                this.rotation = Math.random() * 360;
+                this.rotationSpeed = Math.random() * 15 - 7.5;
+                this.friction = 0.96;
+                this.gravity = 0.25;
+                this.opacity = 1;
+            }
+            update() {
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+                this.vy += this.gravity;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.rotation += this.rotationSpeed;
+                
+                if (this.y > canvas.height * 0.8) {
+                    this.opacity -= 0.015;
+                }
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation * Math.PI / 180);
+                ctx.globalAlpha = this.opacity;
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+                ctx.restore();
+            }
+        }
+
+        function spawnConfettiFromElements(elements) {
+            particles = [];
+            elements.forEach(el => {
+                const rect = el.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                for(let i=0; i<40; i++) particles.push(new Particle(centerX, centerY));
+            });
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles = particles.filter(p => p.opacity > 0);
+            particles.forEach(p => { p.update(); p.draw(); });
+            if (particles.length > 0) requestAnimationFrame(animateConfetti);
+        }
+
+        const playSuccessSound = () => {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const now = audioCtx.currentTime;
+                
+                const playTone = (freq, start, duration) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, start);
+                    gain.gain.setValueAtTime(0.15, start);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(start);
+                    osc.stop(start + duration);
+                };
+
+                // Clear iOS style double-beep
+                playTone(880, now, 0.1);
+                playTone(1760, now + 0.08, 0.15);
+            } catch(e) {}
+        };
+
+        // --- Core Logic ---
+        function getWeightedItem(pool) {
+            let filterPool = pool.filter(m => (state.consecutiveLog.get(m.id) || 0) < 3);
+            if (filterPool.length === 0) filterPool = pool;
+
+            let total = 0;
+            const items = filterPool.map(m => {
+                let w = 1.0;
+                if (state.mode === 'chosen') w = state.weights[m.id] || 1.0;
+                
+                if (state.hiddenActive) {
+                    const targets = state.hiddenListRaw.split(/[\s,，\n]+/).filter(x => x);
+                    if (targets.includes(m.display) || targets.includes(m.id)) {
+                        w *= (state.hiddenWeight / (1 - state.hiddenWeight));
+                    }
+                }
+                total += w; return { ...m, w, cum: total };
+            });
+            const r = Math.random() * total;
+            return items.find(i => r <= i.cum) || items[items.length - 1];
+        }
+
+        function drawBatch() {
+            let winners = [];
+            let tempPool = [...state.remainingPool];
+            for (let i = 0; i < state.batchSize; i++) {
+                if (tempPool.length === 0) break;
+                const winner = getWeightedItem(tempPool);
+                winners.push(winner);
+                tempPool = tempPool.filter(m => m.id !== winner.id);
+            }
+            return winners;
+        }
+
+        function save() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                members: state.members, weights: state.weights, hiddenListRaw: state.hiddenListRaw,
+                hiddenWeight: state.hiddenWeight, batchSize: state.batchSize, mode: state.mode, 
+                history: state.history, hiddenActive: state.hiddenActive,
+                rangeStart: document.getElementById('rangeStart').value,
+                rangeEnd: document.getElementById('rangeEnd').value,
+                rawInput: document.getElementById('rawInput').value,
+                excludeInput: document.getElementById('excludeInput').value
+            }));
+        }
+
+        function load() {
+            const d = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            state.members = d.members || []; 
+            state.weights = d.weights || {};
+            state.hiddenListRaw = d.hiddenListRaw || ''; 
+            state.hiddenWeight = d.hiddenWeight || 0.7;
+            state.batchSize = d.batchSize || 1; 
+            state.mode = d.mode || 'repeat';
+            state.history = d.history || []; 
+            state.hiddenActive = d.hiddenActive || false;
+            
+            if(d.rangeStart) document.getElementById('rangeStart').value = d.rangeStart;
+            if(d.rangeEnd) document.getElementById('rangeEnd').value = d.rangeEnd;
+            if(d.rawInput) document.getElementById('rawInput').value = d.rawInput;
+            if(d.excludeInput) document.getElementById('excludeInput').value = d.excludeInput;
+            
+            document.getElementById('batchSize').value = state.batchSize;
+            document.getElementById('hiddenList').value = state.hiddenListRaw;
+            document.getElementById('hiddenWeightRange').value = state.hiddenWeight * 100;
+            document.getElementById('watermarkBtn').classList.toggle('active', state.hiddenActive);
+            
+            sync();
+        }
+
+        function sync() {
+            const rawVal = document.getElementById('rawInput').value.trim();
+            const rStart = parseInt(document.getElementById('rangeStart').value);
+            const rEnd = parseInt(document.getElementById('rangeEnd').value);
+            const hasRange = !isNaN(rStart) && !isNaN(rEnd) && rEnd >= rStart;
+
+            if (rawVal.length > 0) {
+                state.source = 'list';
+                document.getElementById('sourceStatus').innerText = "当前模式: 使用名单";
+            } else if (hasRange) {
+                state.source = 'range';
+                document.getElementById('sourceStatus').innerText = "当前模式: 使用数字范围";
+            } else {
+                state.source = 'none';
+                document.getElementById('sourceStatus').innerText = "请导入名单或设置范围";
+            }
+
+            let base = [];
+            if (state.source === 'list') {
+                base = [...state.members];
+            } else if (state.source === 'range') {
+                for (let i = rStart; i <= rEnd; i++) {
+                    base.push({ id: `N${i}`, display: i.toString() });
+                }
+            }
+
+            const exRaw = document.getElementById('excludeInput').value.split(/[\s,，\n]+/).filter(x => x);
+            state.fullPool = base.filter(m => !exRaw.includes(m.display) && !exRaw.includes(m.id));
+            
+            if (state.mode !== 'unique' || state.remainingPool.length === 0) {
+                state.remainingPool = [...state.fullPool];
+            }
+
+            document.getElementById('parsedCount').innerText = `已解析 ${state.members.length} 人`;
+            document.getElementById('poolDisplay').innerText = `池: ${state.remainingPool.length}`;
+            document.querySelectorAll('.mode-card').forEach(c => c.classList.toggle('active', c.dataset.mode === state.mode));
+            document.getElementById('weightManager').classList.toggle('hidden', state.mode !== 'chosen');
+            
+            updateToggleBtnUI();
+            renderWeights(); 
+            renderHistory();
+            lucide.createIcons();
+        }
+
+        function updateToggleBtnUI() {
+            const btn = document.getElementById('startBtn');
+            if (state.status === 'rolling') {
+                btn.innerText = '暂停';
+            } else if (state.status === 'paused') {
+                btn.innerText = '继续';
+            } else {
+                if (state.mode === 'unique' && state.remainingPool.length === 0) {
+                    btn.innerText = '下一轮开始';
+                } else {
+                    btn.innerText = '开始';
+                }
+            }
+        }
+
+        function renderWeights() {
+            const listEl = document.getElementById('weightList');
+            listEl.innerHTML = state.fullPool.map(m => `
+                <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-zinc-800 rounded-xl text-[11px]">
+                    <span class="font-bold truncate w-24">${m.display}</span>
+                    <div class="flex items-center gap-2">
+                        <button onclick="changeW('${m.id}', -0.5)" class="w-6 h-6 bg-white dark:bg-zinc-700 rounded border">-</button>
+                        <span class="w-8 text-center font-mono">${state.weights[m.id] || 1}</span>
+                        <button onclick="changeW('${m.id}', 0.5)" class="w-6 h-6 bg-white dark:bg-zinc-700 rounded border">+</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.changeW = (id, delta) => {
+            let current = state.weights[id] || 1;
+            state.weights[id] = Math.max(1, current + delta);
+            renderWeights();
+            save();
+        };
+
+        function renderHistory() {
+            document.getElementById('historyList').innerHTML = state.history.map(h => `
+                <div class="ios-card bg-gray-50/50 dark:bg-zinc-900/50 p-3 mb-2 border-l-4 border-black dark:border-white">
+                    <div class="flex justify-between text-[9px] text-gray-400 font-bold mb-1"><span>${h.mode}</span><span>${h.time}</span></div>
+                    <div class="text-xs font-bold">${h.winners.join(', ')}</div>
+                </div>
+            `).join('');
+        }
+
+        function startRolling() {
+            if (state.mode === 'unique' && state.remainingPool.length === 0) {
+                state.remainingPool = [...state.fullPool];
+            }
+            if (state.status === 'paused') {
+                state.status = 'rolling';
+                document.getElementById('congrats').classList.remove('show');
+                updateToggleBtnUI();
+                runTimer();
+                return;
+            }
+            if (state.remainingPool.length < state.batchSize && state.mode === 'unique') {
+                alert("剩余人数不足，请重置或减少人数");
+                return;
+            }
+            if (state.fullPool.length === 0) return alert("抽取池为空");
+
+            state.status = 'rolling';
+            document.getElementById('congrats').classList.remove('show');
+            updateToggleBtnUI();
+
+            const container = document.getElementById('slotMachine');
+            container.innerHTML = '';
+            for(let i=0; i<state.batchSize; i++) {
+                const s = document.createElement('div');
+                s.className = 'slot rolling';
+                s.innerText = '??';
+                container.appendChild(s);
+            }
+            runTimer();
+        }
+
+        function runTimer() {
+            state.timer = setInterval(() => {
+                const slots = document.querySelectorAll('.slot');
+                slots.forEach(s => {
+                    const randomItem = state.fullPool[Math.floor(Math.random() * state.fullPool.length)];
+                    s.innerText = randomItem ? randomItem.display : '--';
+                });
+            }, 45);
+        }
+
+        function stopRolling() {
+            clearInterval(state.timer);
+            playSuccessSound();
+            state.status = 'paused';
+            updateToggleBtnUI();
+
+            const winners = drawBatch();
+            const slots = document.querySelectorAll('.slot');
+            
+            winners.forEach((w, i) => {
+                if (slots[i]) {
+                    slots[i].innerText = w.display;
+                    slots[i].classList.remove('rolling');
+                }
+            });
+
+            const currentWinnerIds = winners.map(w => w.id);
+            state.consecutiveLog.forEach((val, id) => {
+                if (!currentWinnerIds.includes(id)) state.consecutiveLog.set(id, 0);
+            });
+            currentWinnerIds.forEach(id => {
+                state.consecutiveLog.set(id, (state.consecutiveLog.get(id) || 0) + 1);
+            });
+
+            if (state.mode === 'unique') {
+                const ids = winners.map(w => w.id);
+                state.remainingPool = state.remainingPool.filter(m => !ids.includes(m.id));
+                document.getElementById('poolDisplay').innerText = `池: ${state.remainingPool.length}`;
+            }
+
+            document.getElementById('congrats').classList.add('show');
+            trackSuccess(); // --- 触发 GA4 事件：draw_success ---
+            spawnConfettiFromElements(Array.from(slots).slice(0, winners.length));
+            updateToggleBtnUI();
+            
+            state.history.unshift({ 
+                time: new Date().toLocaleTimeString(), 
+                mode: state.mode === 'repeat' ? '可重复' : (state.mode === 'unique' ? '不重复' : '天选之子'), 
+                winners: winners.map(w => w.display) 
+            });
+            if (state.history.length > 50) state.history.pop();
+            renderHistory();
+            save();
+        }
+
+        // --- Events ---
+        document.getElementById('applyAllSettings').onclick = () => {
+            const raw = document.getElementById('rawInput').value;
+            const regex = new RegExp('(?:(\\d+)[\\s.、-]*)?([^\\s\\d,，;；]+)', 'g');
+            state.members = [...raw.matchAll(regex)].map(m => ({ 
+                id: m[1] || `id_${Math.random().toString(36).substr(2,4)}`, 
+                display: m[2] 
+            }));
+            sync(); 
+            save();
+        };
+
+        document.getElementById('resetListBtn').onclick = () => {
+            if(confirm('清空所有名单输入与范围设置吗？')) {
+                document.getElementById('rawInput').value = '';
+                document.getElementById('excludeInput').value = '';
+                state.members = [];
+                sync();
+                save();
+            }
+        };
+
+        document.getElementById('startBtn').onclick = () => {
+            if (state.status === 'rolling') stopRolling();
+            else startRolling();
+        };
+
+        document.getElementById('slotMachine').onclick = () => {
+            if (state.status === 'rolling') stopRolling();
+        };
+
+        document.getElementById('resetGameBtn').onclick = () => {
+            state.mode = 'repeat';
+            state.status = 'idle';
+            state.remainingPool = [...state.fullPool];
+            state.consecutiveLog.clear();
+            document.getElementById('slotMachine').innerHTML = '<div class="slot">---</div>';
+            document.getElementById('congrats').classList.remove('show');
+            sync();
+            save();
+        };
+
+        document.querySelectorAll('.mode-card').forEach(c => {
+            c.onclick = () => {
+                state.mode = c.dataset.mode;
+                state.remainingPool = [...state.fullPool];
+                state.status = 'idle';
+                sync();
+                save();
+            };
+        });
+
+        document.getElementById('batchSize').onchange = (e) => {
+            state.batchSize = Math.max(1, parseInt(e.target.value) || 1);
+            save();
+            sync(); // 新增：抽取人数变更后自动同步
+        };
+
+        document.getElementById('clearHistory').onclick = () => {
+            state.history = [];
+            renderHistory();
+            save();
+        };
+
+        document.getElementById('watermarkBtn').onclick = () => {
+            state.hiddenActive = !state.hiddenActive;
+            document.getElementById('watermarkBtn').classList.toggle('active', state.hiddenActive);
+            save();
+        };
+
+        document.getElementById('hiddenTrigger').onclick = () => {
+            document.getElementById('hiddenOverlayView').classList.remove('hidden');
+            document.body.classList.add('dark-mode');
+        };
+
+        document.getElementById('exitHidden').onclick = () => {
+            state.hiddenListRaw = document.getElementById('hiddenList').value;
+            state.hiddenWeight = document.getElementById('hiddenWeightRange').value / 100;
+            document.getElementById('hiddenOverlayView').classList.add('hidden');
+            document.body.classList.remove('dark-mode');
+            save();
+            sync();
+        };
+
+        document.getElementById('hiddenWeightRange').oninput = (e) => {
+            document.getElementById('hiddenWeightLabel').innerText = e.target.value + '%';
+        };
+
+        // 新增：数字范围输入框变更时自动同步
+        document.getElementById('rangeStart').addEventListener('input', () => {
+            sync();
+            save();
+        });
+        document.getElementById('rangeEnd').addEventListener('input', () => {
+            sync();
+            save();
+        });
+
+        // 新增：名单输入框变更时自动同步（失去焦点时，避免实时输入卡顿）
+        document.getElementById('rawInput').addEventListener('blur', () => {
+            const raw = document.getElementById('rawInput').value;
+            const regex = new RegExp('(?:(\\d+)[\\s.、-]*)?([^\\s\\d,，;；]+)', 'g');
+            state.members = [...raw.matchAll(regex)].map(m => ({ 
+                id: m[1] || `id_${Math.random().toString(36).substr(2,4)}`, 
+                display: m[2] 
+            }));
+            sync();
+            save();
+        });
+
+        // 新增：排除名单输入框变更时自动同步
+        document.getElementById('excludeInput').addEventListener('blur', () => {
+            sync();
+            save();
+        });
+
+        window.onload = load;
+    </script>
+</body>
+</html>
